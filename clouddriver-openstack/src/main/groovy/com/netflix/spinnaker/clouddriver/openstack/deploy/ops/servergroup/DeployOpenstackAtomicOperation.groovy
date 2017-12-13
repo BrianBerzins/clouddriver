@@ -32,6 +32,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
 import org.openstack4j.model.network.Subnet
+import org.openstack4j.openstack.senlin.domain.SenlinPolicyCreate
 
 import java.util.concurrent.ConcurrentHashMap
 
