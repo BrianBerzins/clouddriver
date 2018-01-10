@@ -91,7 +91,8 @@ class OpenstackOrchestrationV1ClientProviderSpec extends OpenstackClientProvider
       source_user_data     : 'echo foobar',
       tags                 : '{"foo":"bar"}',
       user_data            : parameters.rawUserData,
-      resource_filename    : resourceFileName
+      resource_filename    : resourceFileName,
+      zones                : ["az1","az2"]
     ]
     List<String> tags = loadBalancerIds.collect { "lb-${it}" }
     StackCreate stackCreate = Builders.stack().disableRollback(disableRollback).files(subtmpl).name(stackName).parameters(params).template(tmpl).timeoutMins(timeoutMins).tags(tags.join(',')).build()
