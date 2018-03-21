@@ -19,6 +19,7 @@ package com.netflix.spinnaker.clouddriver.openstack.deploy.ops.servergroup
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.netflix.spinnaker.clouddriver.deploy.DeploymentResult
+import com.netflix.spinnaker.clouddriver.openstack.client.BlockingStatusChecker
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvider
 import com.netflix.spinnaker.clouddriver.openstack.deploy.OpenstackServerGroupNameResolver
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.DeployOpenstackAtomicOperationDescription
@@ -26,6 +27,7 @@ import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergrou
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.ServerGroupParameters
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.UserDataType
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
+import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackProviderException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.ops.StackPoolMemberAware
 import com.netflix.spinnaker.clouddriver.openstack.domain.LoadBalancerResolver
 import com.netflix.spinnaker.clouddriver.openstack.task.TaskStatusAware
@@ -33,6 +35,7 @@ import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
+import org.openstack4j.model.heat.Stack
 import org.openstack4j.model.network.Subnet
 
 import java.util.concurrent.ConcurrentHashMap
@@ -197,6 +200,15 @@ class DeployOpenstackAtomicOperation implements TaskStatusAware, AtomicOperation
 
       provider.deploy(description.region, stackName, template, subtemplates, params,
         description.disableRollback, description.timeoutMins, description.serverGroupParameters.loadBalancers)
+
+      task.updateStatus BASE_PHASE, "Waiting on heat stack creation status $stackName..."
+      // create a status checker for the stack creation status
+      def config = description.credentials.credentials.lbaasConfig
+      BlockingStatusChecker statusChecker = stackStatusChecker(config.pollTimeout, config.pollInterval)
+      statusChecker.execute {
+        provider.getStack(description.region, stackName)
+      }
+
       task.updateStatus BASE_PHASE, "Finished creating heat stack $stackName."
 
       task.updateStatus BASE_PHASE, "Successfully created server group."
@@ -207,6 +219,26 @@ class DeployOpenstackAtomicOperation implements TaskStatusAware, AtomicOperation
       throw new OpenstackOperationException(AtomicOperations.CREATE_SERVER_GROUP, e)
     }
     deploymentResult
+  }
+
+  def static stackStatusChecker(int pollTimeout, int pollInterval) {
+    BlockingStatusChecker.StatusChecker<Stack> statusChecker = new BlockingStatusChecker.StatusChecker<Stack>() {
+      @Override
+      boolean isReady(Stack stack) {
+        switch (stack.status) {
+          case "IN_PROGRESS":
+            return false
+          case "FAILED":
+            throw new OpenstackProviderException("Failed to create stack ${stack.name}: ${stack.stackStatusReason}")
+          case "COMPLETE":
+            return true
+          default:
+            throw new OpenstackProviderException("Unknown status for stack ${stack.name}: ${stack.status} ${stack.stackStatusReason}")
+        }
+      }
+    }
+
+    return BlockingStatusChecker.from(pollTimeout, pollInterval, statusChecker)
   }
 
   String getUserData(OpenstackClientProvider provider, String serverGroupName) {

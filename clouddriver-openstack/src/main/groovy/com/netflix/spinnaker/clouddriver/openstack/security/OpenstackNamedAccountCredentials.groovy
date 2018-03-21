@@ -64,6 +64,11 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
     this(accountName, environment, accountType, username, password, null, projectName, domainName, authUrl, regions, insecure, heatTemplateLocation, lbaasConfig, consulConfig, userDataFile)
   }
 
+  // Explicit getter so that we can mock
+  LbaasConfig getLbaasConfig() {
+    return lbaasConfig
+  }
+
   OpenstackNamedAccountCredentials(String accountName,
                                    String environment,
                                    String accountType,
