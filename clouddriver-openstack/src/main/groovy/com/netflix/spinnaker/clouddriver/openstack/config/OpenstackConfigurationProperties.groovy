@@ -36,11 +36,17 @@ class OpenstackConfigurationProperties {
     Boolean insecure
     String heatTemplatePath
     LbaasConfig lbaas
+    StackConfig stack
     ConsulConfig consul
     String userDataFile
   }
 
   static class LbaasConfig {
+    Integer pollTimeout
+    Integer pollInterval
+  }
+
+  static class StackConfig {
     Integer pollTimeout
     Integer pollInterval
   }

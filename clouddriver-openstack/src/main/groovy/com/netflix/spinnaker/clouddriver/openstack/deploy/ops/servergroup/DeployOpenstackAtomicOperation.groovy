@@ -203,7 +203,7 @@ class DeployOpenstackAtomicOperation implements TaskStatusAware, AtomicOperation
 
       task.updateStatus BASE_PHASE, "Waiting on heat stack creation status $stackName..."
       // create a status checker for the stack creation status
-      def config = description.credentials.credentials.lbaasConfig
+      def config = description.credentials.credentials.stackConfig
       BlockingStatusChecker statusChecker = stackStatusChecker(config.pollTimeout, config.pollInterval)
       statusChecker.execute {
         provider.getStack(description.region, stackName)

@@ -70,7 +70,6 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
   def mockItem
   def mockSubnet
   def tags
-  def lbassConfig
 
   def setupSpec() {
     TaskRepository.threadLocalTask.set(Mock(Task))
@@ -80,10 +79,7 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
     provider = Mock(OpenstackClientProvider)
     GroovyMock(OpenstackProviderFactory, global : true)
     OpenstackNamedAccountCredentials creds = Mock(OpenstackNamedAccountCredentials)
-    lbassConfig = new OpenstackConfigurationProperties.LbaasConfig()
-    lbassConfig.pollInterval = 0
-    lbassConfig.pollTimeout = 1
-    creds.getLbaasConfig() >> lbassConfig
+    creds.getStackConfig() >> new OpenstackConfigurationProperties.StackConfig(pollInterval: 0, pollTimeout: 1)
     OpenstackProviderFactory.createProvider(creds) >> { provider }
     credentials = new OpenstackCredentials(creds)
 
