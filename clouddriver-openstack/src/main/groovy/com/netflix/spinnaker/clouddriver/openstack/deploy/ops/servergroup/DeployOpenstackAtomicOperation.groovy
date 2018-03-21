@@ -226,11 +226,11 @@ class DeployOpenstackAtomicOperation implements TaskStatusAware, AtomicOperation
       @Override
       boolean isReady(Stack stack) {
         switch (stack.status) {
-          case "IN_PROGRESS":
+          case "CREATE_IN_PROGRESS":
             return false
-          case "FAILED":
+          case "CREATE_FAILED":
             throw new OpenstackProviderException("Failed to create stack ${stack.name}: ${stack.stackStatusReason}")
-          case "COMPLETE":
+          case "CREATE_COMPLETE":
             return true
           default:
             throw new OpenstackProviderException("Unknown status for stack ${stack.name}: ${stack.status} ${stack.stackStatusReason}")

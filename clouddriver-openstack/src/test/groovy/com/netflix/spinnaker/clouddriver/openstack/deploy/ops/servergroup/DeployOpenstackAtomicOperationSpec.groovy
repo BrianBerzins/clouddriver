@@ -125,7 +125,7 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
     1 * provider.getListener(region, listenerId) >> mockListener
     1 * provider.getSubnet(region, subnetId) >> mockSubnet
     1 * provider.deploy(region, createdStackName, _ as String, _ as Map<String,String>, expectedServerGroupParams, _ as Boolean, _ as Long, tags)
-    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "COMPLETE")
+    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "CREATE_COMPLETE")
     noExceptionThrown()
   }
 
@@ -147,7 +147,7 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
     1 * provider.getListener(region, listenerId) >> mockListener
     1 * provider.getSubnet(region, subnetId) >> mockSubnet
     1 * provider.deploy(region, newStackName, _ as String, _ as Map<String,String>, expectedServerGroupParams, _ as Boolean, _ as Long, tags)
-    1 * provider.getStack(region, newStackName) >> new HeatStack(status: "COMPLETE")
+    1 * provider.getStack(region, newStackName) >> new HeatStack(status: "CREATE_COMPLETE")
     noExceptionThrown()
   }
 
@@ -184,7 +184,7 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
     1 * provider.getListener(region, listenerId) >> mockListener
     1 * provider.getSubnet(region, subnetId) >> mockSubnet
     1 * provider.deploy(region, createdStackName, _ as String, _ as Map<String,String>, expected, _ as Boolean, _ as Long, tags)
-    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "COMPLETE")
+    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "CREATE_COMPLETE")
     noExceptionThrown()
   }
 
@@ -214,7 +214,7 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
     1 * provider.getListener(region, listenerId) >> mockListener
     1 * provider.getSubnet(region, subnetId) >> mockSubnet
     1 * provider.deploy(region, createdStackName, _ as String, _ as Map<String,String>, expected, _ as Boolean, _ as Long, tags)
-    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "COMPLETE")
+    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "CREATE_COMPLETE")
     noExceptionThrown()
   }
 
@@ -252,7 +252,7 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
     1 * provider.getListener(region, listenerId) >> mockListener
     1 * provider.getSubnet(region, subnetId) >> mockSubnet
     1 * provider.deploy(region, createdStackName, _ as String, _ as Map<String,String>, expectedServerGroupParams, _ as Boolean, _ as Long, tags)
-    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "FAILED")
+    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "CREATE_FAILED")
     thrown(OpenstackOperationException)
   }
 
@@ -270,7 +270,7 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
     1 * provider.getListener(region, listenerId) >> mockListener
     1 * provider.getSubnet(region, subnetId) >> mockSubnet
     1 * provider.deploy(region, createdStackName, _ as String, _ as Map<String,String>, expectedServerGroupParams, _ as Boolean, _ as Long, tags)
-    2 * provider.getStack(region, createdStackName) >>> [new HeatStack(status: "IN_PROGRESS"), new HeatStack(status: "COMPLETE")]
+    2 * provider.getStack(region, createdStackName) >>> [new HeatStack(status: "CREATE_IN_PROGRESS"), new HeatStack(status: "CREATE_COMPLETE")]
     noExceptionThrown()
   }
 
@@ -300,7 +300,7 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
     }
     1 * provider.getSubnet(region, subnetId) >> mockSubnet
     1 * provider.deploy(region, createdStackName, { assertTemplate(it, mainTemplate) }, { assertTemplates(it, subtemplates)}, { params(it) }, _ as Boolean, _ as Long, tags)
-    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "COMPLETE")
+    1 * provider.getStack(region, createdStackName) >> new HeatStack(status: "CREATE_COMPLETE")
     noExceptionThrown()
 
     where:
@@ -312,27 +312,27 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
   }
 
 
-    def "should return true when heat stack status is COMPLETE"() {
+    def "should return true when heat stack status is CREATE_COMPLETE"() {
       given:
       def checker = DeployOpenstackAtomicOperation.stackStatusChecker(0,0)
       when:
-      def ready = checker.statusChecker.isReady(new HeatStack(status: "COMPLETE"))
+      def ready = checker.statusChecker.isReady(new HeatStack(status: "CREATE_COMPLETE"))
       then:
       ready
     }
-    def "should return false when heat stack status is IN_PROGRESS"() {
+    def "should return false when heat stack status is CREATE_IN_PROGRESS"() {
       given:
       def checker = DeployOpenstackAtomicOperation.stackStatusChecker(0,0)
       when:
-      def ready = checker.statusChecker.isReady(new HeatStack(status: "IN_PROGRESS"))
+      def ready = checker.statusChecker.isReady(new HeatStack(status: "CREATE_IN_PROGRESS"))
       then:
       !ready
     }
-    def "should thrown an exception when heat stack status is FAILED"() {
+    def "should thrown an exception when heat stack status is CREATE_FAILED"() {
       given:
       def checker = DeployOpenstackAtomicOperation.stackStatusChecker(0,0)
       when:
-      checker.statusChecker.isReady(new HeatStack(status: "FAILED"))
+      checker.statusChecker.isReady(new HeatStack(status: "CREATE_FAILED"))
       then:
       thrown(OpenstackProviderException)
     }
