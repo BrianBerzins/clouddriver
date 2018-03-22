@@ -62,6 +62,9 @@ class TerminateOpenstackInstancesAtomicOperation extends AbstractStackUpdateOpen
         throw new OpenstackResourceNotFoundException("Could not find server: $instanceId in region: $description.region")
       }
       serverGroupName = server.metadata?.get("metering.stack.name") ?: provider.getStack(description.region, server.metadata?.get("metering.stack"))?.name
+      if (!serverGroupName) {
+        throw new OpenstackResourceNotFoundException("Could not find server group name for server: $instanceId")
+      }
       task.updateStatus phaseName, "Found server group name $serverGroupName from instance $instanceId."
     }
     serverGroupName
@@ -75,6 +78,9 @@ class TerminateOpenstackInstancesAtomicOperation extends AbstractStackUpdateOpen
     Resource asg = provider.getAsgResourceForStack(description.region, stack)
     task.updateStatus phaseName, "Finding nested stack for resource $asg.type ..."
     Stack nested = provider.getStack(description.region, asg.physicalResourceId)
+    if (!nested) {
+      throw new OpenstackResourceNotFoundException("Could not find stack $asg.physicalResourceId in region: $description.region")
+    }
 
     description.instanceIds.each { id ->
 

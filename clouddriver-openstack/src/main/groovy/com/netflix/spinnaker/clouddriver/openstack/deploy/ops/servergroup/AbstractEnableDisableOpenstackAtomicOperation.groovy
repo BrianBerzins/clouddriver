@@ -91,6 +91,9 @@ abstract class AbstractEnableDisableOpenstackAtomicOperation implements AtomicOp
       List<String> instanceIds = provider.getInstanceIdsForStack(description.region, description.serverGroupName)
       if (instanceIds?.size() > 0) {
         Stack stack = provider.getStack(description.region, description.serverGroupName)
+        if (!stack) {
+          throw new OpenstackResourceNotFoundException("Could not find stack $description.serverGroupName in region: $description.region")
+        }
         if (stack.tags?.size() > 0) {
           enableDisableLoadBalancerMembers(instanceIds, stack.tags)
           task.updateStatus phaseName, "Done ${gerund.toLowerCase()} server group $description.serverGroupName in $description.region."

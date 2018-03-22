@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvide
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.OpenstackServerGroupAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.ServerGroupParameters
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
+import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import org.openstack4j.model.heat.Stack
 
@@ -92,6 +93,9 @@ abstract class AbstractStackUpdateOpenstackAtomicOperation implements AtomicOper
       String foundServerGroupName = serverGroupName
       task.updateStatus phaseName, "Fetching server group $foundServerGroupName"
       Stack stack = provider.getStack(description.region, foundServerGroupName)
+      if (!stack) {
+        throw new OpenstackResourceNotFoundException("Could not find stack $foundServerGroupName in region: $description.region")
+      }
 
       //pre update ops
       preUpdate(stack)

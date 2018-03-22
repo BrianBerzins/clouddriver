@@ -52,6 +52,9 @@ abstract class AbstractOpenstackLoadBalancerAtomicOperation implements TaskStatu
       //get stack details
       task.updateStatus operation, "Fetching stack details for server group $stackSummary.name..."
       Stack stack = provider.getStack(region, stackSummary.name)
+      if (!stack) {
+        throw new OpenstackResourceNotFoundException("Could not find stack $stackSummary.name in region: $region")
+      }
       task.updateStatus operation, "Fetched stack details for server group $stackSummary.name."
 
       //update parameters
@@ -79,6 +82,7 @@ abstract class AbstractOpenstackLoadBalancerAtomicOperation implements TaskStatu
 
       //update stack
       task.updateStatus operation, "Updating server group $stack.name..."
+      // TODO: this should be wrapped with a checker
       provider.updateStack(region, stack.name, stack.id, template, [(ServerGroupConstants.SUBTEMPLATE_FILE): subtemplate, (ServerGroupConstants.MEMBERTEMPLATE_FILE): memberTemplate], newParams, newParams.loadBalancers)
       task.updateStatus operation, "Successfully updated server group $stack.name."
     }

@@ -206,6 +206,7 @@ class DeployOpenstackAtomicOperation implements TaskStatusAware, AtomicOperation
       def config = description.credentials.credentials.stackConfig
       BlockingStatusChecker statusChecker = stackStatusChecker(config.pollTimeout, config.pollInterval)
       statusChecker.execute {
+        // TODO: make checker null safe
         provider.getStack(description.region, stackName)
       }
 
