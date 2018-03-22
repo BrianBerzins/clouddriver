@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.openstack.client.BlockingStatusChecker
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvider
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.EnableDisableAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
+import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.ops.LoadBalancerStatusAware
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import groovy.util.logging.Slf4j
@@ -69,6 +70,9 @@ abstract class AbstractEnableDisableOpenstackAtomicOperation implements AtomicOp
       List<String> instanceIds = provider.getInstanceIdsForStack(description.region, description.serverGroupName)
       instanceIds.each { String instanceId ->
         Server instance = provider.getServerInstance(description.region, instanceId)
+        if (!instance) {
+          throw new OpenstackResourceNotFoundException("Could not find server: $instanceId in region: $description.region")
+        }
         try {
           EnableDisableConsulInstance.operate(credentials.credentials.consulConfig,
             instance.name,
