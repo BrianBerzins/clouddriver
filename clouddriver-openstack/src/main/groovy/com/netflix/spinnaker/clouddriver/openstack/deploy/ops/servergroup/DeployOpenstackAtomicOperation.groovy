@@ -28,6 +28,7 @@ import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergrou
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.UserDataType
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackProviderException
+import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.ops.StackPoolMemberAware
 import com.netflix.spinnaker.clouddriver.openstack.domain.LoadBalancerResolver
 import com.netflix.spinnaker.clouddriver.openstack.task.TaskStatusAware
@@ -252,6 +253,9 @@ class DeployOpenstackAtomicOperation implements TaskStatusAware, AtomicOperation
         String[] parts = description.userData.split(":")
         if (parts?.length == 2) {
           customUserData = provider.readSwiftObject(description.region, parts[0], parts[1])
+          if (!customUserData) {
+            throw new OpenstackResourceNotFoundException("Failed to read the Swift object ${parts[0]}/${parts[1]} in region ${description.region}")
+          }
         }
       } else {
         customUserData = description.userData
