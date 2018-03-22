@@ -23,6 +23,7 @@ import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvide
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.instance.OpenstackInstancesRegistrationDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackProviderException
+import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.ops.LoadBalancerStatusAware
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import org.openstack4j.model.network.ext.ListenerV2
@@ -59,6 +60,10 @@ abstract class AbstractRegistrationOpenstackInstancesAtomicOperation implements 
         BlockingStatusChecker checker = createBlockingActiveStatusChecker(description.credentials, description.region, lb)
         task.updateStatus basePhase, "Getting details for load balancer $lb..."
         LoadBalancerV2 loadBalancer = provider.getLoadBalancer(description.region, lb)
+        if (!loadBalancer) {
+          throw new OpenstackResourceNotFoundException("Could not find load balancer: $lb in region: $description.region")
+        }
+
         description.instanceIds.each { id ->
           task.updateStatus basePhase, "Getting ip address for service instance $id..."
           String ip = provider.getIpForInstance(description.region, id)

@@ -66,6 +66,9 @@ class UpsertOpenstackLoadBalancerAtomicOperation extends AbstractOpenstackLoadBa
         resultLoadBalancer = createLoadBalancer(region, description.name, description.subnetId)
       } else {
         resultLoadBalancer = provider.getLoadBalancer(region, description.id)
+        if (!resultLoadBalancer) {
+          throw new OpenstackResourceNotFoundException("Could not find load balancer: $description.id in region: $region")
+        }
         checkPendingLoadBalancerState(resultLoadBalancer)
       }
 

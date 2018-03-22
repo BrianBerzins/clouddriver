@@ -22,6 +22,7 @@ import com.netflix.spinnaker.clouddriver.openstack.config.OpenstackConfiguration
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.loadbalancer.DeleteOpenstackLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackProviderException
+import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.ops.StackPoolMemberAware
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
@@ -104,12 +105,7 @@ class DeleteOpenstackLoadBalancerAtomicOperation extends AbstractOpenstackLoadBa
   BlockingStatusChecker createBlockingDeletedStatusChecker(String region, String loadBalancerId) {
     LbaasConfig config = this.description.credentials.credentials.lbaasConfig
     BlockingStatusChecker.from(config.pollTimeout, config.pollInterval) {
-      LoadBalancerV2 loadBalancer
-      try {
-        loadBalancer = provider.getLoadBalancer(region, loadBalancerId)
-      } catch (OpenstackProviderException e) {
-        // Get load balancer will throw an exception if the load balancer is not found
-      }
+      LoadBalancerV2 loadBalancer = provider.getLoadBalancer(region, loadBalancerId)
 
       // Short circuit polling if openstack is unable to provision the load balancer
       if (loadBalancer && LbProvisioningStatus.ERROR == loadBalancer.provisioningStatus) {
