@@ -34,6 +34,7 @@ import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackCredentials
 import com.netflix.spinnaker.clouddriver.openstack.security.OpenstackNamedAccountCredentials
 import com.netflix.spinnaker.clouddriver.openstack.task.TaskStatusAware
 import org.openstack4j.model.compute.FloatingIP
+import org.openstack4j.model.compute.SecGroupExtension
 import org.openstack4j.model.network.NetFloatingIP
 import org.openstack4j.model.network.Network
 import org.openstack4j.model.network.Port
@@ -614,7 +615,7 @@ class UpsertOpenstackLoadBalancerAtomicOperationSpec extends Specification imple
     then:
     1 * provider.getSubnet(region, subnetId) >> Mock(Subnet)
     1 * provider.getNetwork(region, networkId) >> Mock(Network)
-    1 * provider.getSecurityGroup(region, securityGroup)
+    1 * provider.getSecurityGroup(region, securityGroup) >> Mock(SecGroupExtension)
     noExceptionThrown()
   }
 

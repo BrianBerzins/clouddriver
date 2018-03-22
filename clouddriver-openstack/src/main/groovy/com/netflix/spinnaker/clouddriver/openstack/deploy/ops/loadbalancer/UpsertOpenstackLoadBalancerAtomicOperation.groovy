@@ -134,7 +134,9 @@ class UpsertOpenstackLoadBalancerAtomicOperation extends AbstractOpenstackLoadBa
     }
 
     securityGroups?.each {
-      provider.getSecurityGroup(region, it) // Throws resource not found exception.
+      if (!provider.getSecurityGroup(region, it)) {
+        throw new OpenstackResourceNotFoundException("Could not find securityGroup: $it in region: $region")
+      }
     }
   }
   /**
