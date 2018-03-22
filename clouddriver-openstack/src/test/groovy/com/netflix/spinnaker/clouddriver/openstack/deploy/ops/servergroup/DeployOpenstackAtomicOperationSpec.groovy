@@ -307,44 +307,6 @@ class DeployOpenstackAtomicOperationSpec extends Specification {
     "fip, load balancers"       | true  | true          || exampleTemplate("servergroup_float.yaml") | ["servergroup_resource.yaml": exampleTemplate("servergroup_resource_float.yaml"), "servergroup_resource_member.yaml": memberDataTemplate()] | { ServerGroupParameters params -> true }
   }
 
-
-    def "should return true when heat stack status is CREATE_COMPLETE"() {
-      given:
-      def checker = DeployOpenstackAtomicOperation.stackStatusChecker(0,0)
-      when:
-      def ready = checker.statusChecker.isReady(new HeatStack(status: "CREATE_COMPLETE"))
-      then:
-      ready
-    }
-    def "should return false when heat stack status is CREATE_IN_PROGRESS"() {
-      given:
-      def checker = DeployOpenstackAtomicOperation.stackStatusChecker(0,0)
-      when:
-      def ready = checker.statusChecker.isReady(new HeatStack(status: "CREATE_IN_PROGRESS"))
-      then:
-      !ready
-    }
-    def "should thrown an exception when heat stack status is CREATE_FAILED"() {
-      given:
-      def checker = DeployOpenstackAtomicOperation.stackStatusChecker(0,0)
-      when:
-      checker.statusChecker.isReady(new HeatStack(status: "CREATE_FAILED"))
-      then:
-      thrown(OpenstackProviderException)
-    }
-
-  def "should thrown an exception when heat stack status is unknown"() {
-    given:
-    def checker = DeployOpenstackAtomicOperation.stackStatusChecker(0,0)
-    when:
-    checker.statusChecker.isReady(new HeatStack(status: "UNKNOWN_STATUS"))
-    then:
-    thrown(OpenstackProviderException)
-  }
-
-
-
-
   private boolean assertTemplate(String actual, String expected) {
     def mapper = new ObjectMapper(new YAMLFactory())
     return mapper.readValue(actual, Map) == mapper.readValue(expected, Map)

@@ -205,9 +205,9 @@ class DeployOpenstackAtomicOperation implements TaskStatusAware, AtomicOperation
       task.updateStatus BASE_PHASE, "Waiting on heat stack creation status $stackName..."
       // create a status checker for the stack creation status
       def config = description.credentials.credentials.stackConfig
-      BlockingStatusChecker statusChecker = stackStatusChecker(config.pollTimeout, config.pollInterval)
+      StackChecker stackChecker = new StackChecker(StackChecker.Operation.CREATE)
+      BlockingStatusChecker statusChecker = BlockingStatusChecker.from(config.pollTimeout, config.pollInterval, stackChecker)
       statusChecker.execute {
-        // TODO: make checker null safe
         provider.getStack(description.region, stackName)
       }
 
@@ -221,26 +221,6 @@ class DeployOpenstackAtomicOperation implements TaskStatusAware, AtomicOperation
       throw new OpenstackOperationException(AtomicOperations.CREATE_SERVER_GROUP, e)
     }
     deploymentResult
-  }
-
-  def static stackStatusChecker(int pollTimeout, int pollInterval) {
-    BlockingStatusChecker.StatusChecker<Stack> statusChecker = new BlockingStatusChecker.StatusChecker<Stack>() {
-      @Override
-      boolean isReady(Stack stack) {
-        switch (stack.status) {
-          case "CREATE_IN_PROGRESS":
-            return false
-          case "CREATE_FAILED":
-            throw new OpenstackProviderException("Failed to create stack ${stack.name}: ${stack.stackStatusReason}")
-          case "CREATE_COMPLETE":
-            return true
-          default:
-            throw new OpenstackProviderException("Unknown status for stack ${stack.name}: ${stack.status} ${stack.stackStatusReason}")
-        }
-      }
-    }
-
-    return BlockingStatusChecker.from(pollTimeout, pollInterval, statusChecker)
   }
 
   String getUserData(OpenstackClientProvider provider, String serverGroupName) {
