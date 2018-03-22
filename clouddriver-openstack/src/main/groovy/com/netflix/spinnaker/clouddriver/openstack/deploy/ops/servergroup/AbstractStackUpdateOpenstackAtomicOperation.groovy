@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.openstack.deploy.ops.servergroup
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.openstack.client.BlockingStatusChecker
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvider
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.OpenstackServerGroupAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.ServerGroupParameters
@@ -120,6 +121,14 @@ abstract class AbstractStackUpdateOpenstackAtomicOperation implements AtomicOper
       //update stack
       task.updateStatus phaseName, "Updating server group $stack.name"
       provider.updateStack(description.region, stack.name, stack.id, template, templateMap, buildServerGroupParameters(stack), stack.tags)
+
+      task.updateStatus phaseName, "Waiting on heat stack update status ${stack.name}..."
+      def config = description.credentials.credentials.stackConfig
+      StackChecker stackChecker = new StackChecker(StackChecker.Operation.UPDATE)
+      BlockingStatusChecker statusChecker = BlockingStatusChecker.from(config.pollTimeout, config.pollInterval, stackChecker)
+      statusChecker.execute {
+        provider.getStack(description.region, description.serverGroupName)
+      }
       task.updateStatus phaseName, "Successfully updated server group $stack.name"
 
       //post update ops

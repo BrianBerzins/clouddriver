@@ -18,6 +18,7 @@ package com.netflix.spinnaker.clouddriver.openstack.deploy.ops.servergroup
 
 import com.netflix.spinnaker.clouddriver.data.task.Task
 import com.netflix.spinnaker.clouddriver.data.task.TaskRepository
+import com.netflix.spinnaker.clouddriver.openstack.client.BlockingStatusChecker
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvider
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.servergroup.OpenstackServerGroupAtomicOperationDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
@@ -59,8 +60,17 @@ class DestroyOpenstackAtomicOperation implements AtomicOperation<Void> {
       task.updateStatus BASE_PHASE, "Found heat stack ${description.serverGroupName}..."
 
       task.updateStatus BASE_PHASE, "Destroying heat stack ${stack.name} with id ${stack.id}..."
-      // TODO: wrap this in a checker
+
       provider.destroy(description.region, stack)
+
+      task.updateStatus BASE_PHASE, "Waiting on heat stack deletion status ${description.serverGroupName}..."
+      def config = description.credentials.credentials.stackConfig
+      StackChecker stackChecker = new StackChecker(StackChecker.Operation.DELETE)
+      BlockingStatusChecker statusChecker = BlockingStatusChecker.from(config.pollTimeout, config.pollInterval, stackChecker)
+      statusChecker.execute {
+        provider.getStack(description.region, description.serverGroupName)
+      }
+
       task.updateStatus BASE_PHASE, "Destroyed heat stack ${stack.name} with id ${stack.id}..."
 
       task.updateStatus BASE_PHASE, "Successfully destroyed server group"
