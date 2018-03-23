@@ -16,18 +16,14 @@
 
 package com.netflix.spinnaker.clouddriver.openstack.deploy.ops.loadbalancer
 
-import com.netflix.spinnaker.clouddriver.openstack.client.BlockingStatusChecker
 import com.netflix.spinnaker.clouddriver.openstack.client.OpenstackClientProvider
-import com.netflix.spinnaker.clouddriver.openstack.config.OpenstackConfigurationProperties.LbaasConfig
 import com.netflix.spinnaker.clouddriver.openstack.deploy.description.loadbalancer.DeleteOpenstackLoadBalancerDescription
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackOperationException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackProviderException
-import com.netflix.spinnaker.clouddriver.openstack.deploy.exception.OpenstackResourceNotFoundException
 import com.netflix.spinnaker.clouddriver.openstack.deploy.ops.StackPoolMemberAware
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperation
 import com.netflix.spinnaker.clouddriver.orchestration.AtomicOperations
 import groovy.util.logging.Slf4j
-import org.openstack4j.model.network.ext.LbProvisioningStatus
 import org.openstack4j.model.network.ext.ListenerV2
 import org.openstack4j.model.network.ext.LoadBalancerV2
 
@@ -90,29 +86,11 @@ class DeleteOpenstackLoadBalancerAtomicOperation extends AbstractOpenstackLoadBa
 
     //delete load balancer
     task.updateStatus BASE_PHASE, "Deleting load balancer $loadBalancer.id in $region ..."
-    createBlockingDeletedStatusChecker(region, loadBalancer.id).execute {
-      provider.deleteLoadBalancer(region, loadBalancer.id)
+    provider.deleteLoadBalancer(region, loadBalancer.id)
+    task.updateStatus BASE_PHASE, "Waiting on delete of load balancer $loadBalancer.id in $region ..."
+    LoadBalancerChecker.from(openstackCredentials.credentials.lbaasConfig, LoadBalancerChecker.Operation.DELETE).execute {
+      provider.getLoadBalancer(region, loadBalancer.id)
     }
     task.updateStatus BASE_PHASE, "Deleted load balancer $loadBalancer.id in $region."
-  }
-
-  /**
-   * Creates and returns a new blocking deleted status checker.
-   * @param region
-   * @param loadBalancerId
-   * @return
-   */
-  BlockingStatusChecker createBlockingDeletedStatusChecker(String region, String loadBalancerId) {
-    LbaasConfig config = this.description.credentials.credentials.lbaasConfig
-    BlockingStatusChecker.from(config.pollTimeout, config.pollInterval) {
-      LoadBalancerV2 loadBalancer = provider.getLoadBalancer(region, loadBalancerId)
-
-      // Short circuit polling if openstack is unable to provision the load balancer
-      if (loadBalancer && LbProvisioningStatus.ERROR == loadBalancer.provisioningStatus) {
-        throw new OpenstackProviderException("Openstack was unable to provision load balancer ${loadBalancerId}")
-      }
-
-      loadBalancer == null
-    }
   }
 }

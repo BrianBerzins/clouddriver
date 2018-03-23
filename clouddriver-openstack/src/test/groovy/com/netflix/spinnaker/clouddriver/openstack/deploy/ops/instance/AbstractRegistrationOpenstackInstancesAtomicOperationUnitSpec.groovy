@@ -68,6 +68,7 @@ class AbstractRegistrationOpenstackInstancesAtomicOperationUnitSpec extends Spec
     loadBalancer = Mock(LoadBalancerV2) {
       it.listeners >> { listeners }
       it.vipSubnetId >> { subnetId }
+      it.provisioningStatus >> { LbProvisioningStatus.ACTIVE}
     }
     mockLB = Mock(LoadBalancerV2) {
       it.id >> { _ }
@@ -225,33 +226,6 @@ class AbstractRegistrationOpenstackInstancesAtomicOperationUnitSpec extends Spec
           provider.getMemberIdForInstance(region, ip, listenerMap[listItem.id].defaultPoolId) >> {
             throw new OpenstackProviderException("foobar")
           }
-        }
-      }
-    }
-    Exception ex = thrown(OpenstackOperationException)
-    ex.cause.message == "foobar"
-
-    where:
-    opClass << [DeregisterOpenstackInstancesAtomicOperation]
-  }
-
-  def "should throw exception when failing to remove member"() {
-    given:
-    @Subject def operation = opClass.newInstance(description)
-    OpenstackClientProvider provider = credentials.provider
-
-    when:
-    operation.operate([])
-
-    then:
-    LB_IDS.each { lbid ->
-      provider.getLoadBalancer(region, lbid) >> loadBalancer
-      INSTANCE_IDS.each { id ->
-        provider.getIpForInstance(region, id) >> ip
-        loadBalancer.listeners.each { listItem ->
-          provider.getListener(region, listItem.id) >> listenerMap[listItem.id]
-          provider.getMemberIdForInstance(region, ip, listenerMap[listItem.id].defaultPoolId) >> memberId
-          provider.removeMemberFromLoadBalancerPool(region, listenerMap[listItem.id].defaultPoolId, memberId) >> { throw new OpenstackProviderException("foobar") }
         }
       }
     }

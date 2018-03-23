@@ -67,6 +67,11 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
   }
 
   // Explicit getter so that we can mock
+  LbaasConfig getLbaasConfig() {
+    return lbaasConfig
+  }
+
+  // Explicit getter so that we can mock
   StackConfig getStackConfig() {
     return stackConfig
   }

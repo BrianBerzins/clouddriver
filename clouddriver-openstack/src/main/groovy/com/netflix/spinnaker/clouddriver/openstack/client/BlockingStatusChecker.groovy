@@ -59,15 +59,13 @@ class BlockingStatusChecker {
     while(true) {
       result = closure.call()
       if (statusChecker.isReady(result)) {
-        break
+        return result
       }
       if ((System.currentTimeMillis() - startTime) > timeout) {
         throw new OpenstackProviderException('Operation timed out')
       }
       sleep(pollInterval)
     }
-    result
-
   }
 
   @PackageScope
