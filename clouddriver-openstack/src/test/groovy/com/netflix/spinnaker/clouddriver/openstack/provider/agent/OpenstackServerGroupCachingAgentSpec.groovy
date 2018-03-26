@@ -208,6 +208,7 @@ class OpenstackServerGroupCachingAgentSpec extends Specification {
     Stack stack = Mock(Stack) {
       getId() >> { stackId }
       getName() >> { serverGroupName }
+      getParameters() >> ['load_balancers': loadBalancerId]
     }
     LoadBalancerV2StatusTree lb = Mock(LoadBalancerV2StatusTree) {
       it.loadBalancerV2Status >> {
@@ -217,7 +218,6 @@ class OpenstackServerGroupCachingAgentSpec extends Specification {
         }
       }
     }
-    Stack stackDetail = Mock(Stack) { getParameters() >> ['load_balancers': loadBalancerId] }
     OpenstackServerGroup openstackServerGroup = OpenstackServerGroup.builder().account(account).name(serverGroupName).tags([foo:'the bar', port:'5050']).build()
     Map<String, Object> serverGroupAttributes = objectMapper.convertValue(openstackServerGroup, OpenstackInfrastructureProvider.ATTRIBUTES)
     CacheResultBuilder cacheResultBuilder = new CacheResultBuilder()
@@ -235,9 +235,9 @@ class OpenstackServerGroupCachingAgentSpec extends Specification {
 
     then:
     1 * cachingAgent.getInstanceIdsByStack(region, stacks) >> [(stackId): [serverId]]
-    1 * provider.getStack(region, stack.name) >> stackDetail
+    0 * provider.getStack(region, stack.name)
     1 * provider.getLoadBalancerStatusTree(region, loadBalancerId) >> lb
-    1 * cachingAgent.buildServerGroup(providerCache, stackDetail, _, _) >> openstackServerGroup
+    1 * cachingAgent.buildServerGroup(providerCache, stack, _, _) >> openstackServerGroup
 
     and:
     CacheResult result = cacheResultBuilder.build()

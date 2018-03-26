@@ -119,11 +119,10 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
             relationships[SERVER_GROUPS.ns].add(serverGroupKey)
           }
 
-          Stack detail = clientProvider.getStack(region, stack.name)
           Set<String> loadBalancerKeys = [].toSet()
           Set<LoadBalancerV2Status> statuses = [].toSet()
-          if (detail && detail.parameters) {
-            statuses = ServerGroupParameters.fromParamsMap(detail.parameters).loadBalancers?.collect { loadBalancerId ->
+          if (stack && stack.parameters) {
+            statuses = ServerGroupParameters.fromParamsMap(stack.parameters).loadBalancers?.collect { loadBalancerId ->
               LoadBalancerV2Status status = null
               try {
                 status = clientProvider.getLoadBalancerStatusTree(region, loadBalancerId)?.loadBalancerV2Status
@@ -148,7 +147,7 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
             instanceKeys.add(instanceKey)
           }
 
-          OpenstackServerGroup openstackServerGroup = buildServerGroup(providerCache, detail, statuses, instanceKeys)
+          OpenstackServerGroup openstackServerGroup = buildServerGroup(providerCache, stack, statuses, instanceKeys)
 
           if (shouldUseOnDemandData(cacheResultBuilder, serverGroupKey)) {
             moveOnDemandDataToNamespace(objectMapper, typeReference, cacheResultBuilder, serverGroupKey)
