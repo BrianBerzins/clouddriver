@@ -89,9 +89,60 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
     }
   }
 
+
+  Map<String, List<String>> getServerGroupToLoadBalancerIdsMap(List<Stack> stacks) {
+    stacks.findResult { Stack stack ->
+      String serverGroupName = stack.getName()
+      Names names = Names.parseName(serverGroupName)
+      if (names == null || names.getApp() == null || names.getCluster() == null) {
+        // the name of the stack does follow our the naming convention, ignore it
+        return [:]
+      }
+      Stack detail = clientProvider.getStack(region, stack.getName())
+      if (detail == null || detail.getParameters() == null) {
+        return [(serverGroupName): Collections.EMPTY_LIST]
+      }
+      List<String> loadBalancerIds = ServerGroupParameters.fromParamsMap(detail.parameters).loadBalancers
+      List<String> loadBalancerKeys = getLoadBalancerKeys(loadBalancerIds)
+
+      return [(serverGroupName): loadBalancerKeys]
+    }
+  }
+
+  List<String> getLoadBalancerKeys(List<String> loadBalancerIds) {
+    List<Future<String>> loadBalancerKeyFutures = loadBalancerIds.findResults { String loadBalancerId ->
+      return CompletableFuture.supplyAsync {
+        LoadBalancerV2Status status = clientProvider.getLoadBalancerStatusTree(region, loadBalancerId)?.loadBalancerV2Status
+        if (status != null) {
+          return Keys.getLoadBalancerKey(status.name, status.id, accountName, region)
+        }
+        return null // do not include
+      }.exceptionally{ throwable -> null }
+      }
+    CompletableFuture.allOf(loadBalancerKeyFutures as CompletableFuture[]).join()
+    return loadBalancerKeyFutures.collect { Future<String> loadBalancerKeyFuture ->
+      loadBalancerKeyFuture.get()
+    }
+  }
+
+
+
   protected CacheResult buildCacheResult(ProviderCache providerCache, CacheResultBuilder cacheResultBuilder, List<Stack> stacks) {
     // Lookup all instances and group by stack Id
     Map<String, List<String>> instancesByStackId = getInstanceIdsByStack(region, stacks)
+
+    // -----
+
+
+
+    // for each stack, get:
+    //    server group name
+    //    []load balancer key
+    Map<String, List<String>> serverGroupToLoadBalancerIdsMap =
+    }
+
+
+
 
     stacks?.each { Stack stack ->
       try {
@@ -119,14 +170,14 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
             relationships[SERVER_GROUPS.ns].add(serverGroupKey)
           }
 
-          Stack detail = clientProvider.getStack(region, stack.name)
+          Stack detail = clientProvider.getStack(region, stack.name)      // remote
           Set<String> loadBalancerKeys = [].toSet()
           Set<LoadBalancerV2Status> statuses = [].toSet()
           if (detail && detail.parameters) {
             statuses = ServerGroupParameters.fromParamsMap(detail.parameters).loadBalancers?.collect { loadBalancerId ->
               LoadBalancerV2Status status = null
               try {
-                status = clientProvider.getLoadBalancerStatusTree(region, loadBalancerId)?.loadBalancerV2Status
+                status = clientProvider.getLoadBalancerStatusTree(region, loadBalancerId)?.loadBalancerV2Status // remote
                 if (status) {
                   String loadBalancerKey = Keys.getLoadBalancerKey(status.name, status.id, accountName, region)
                   cacheResultBuilder.namespace(LOAD_BALANCERS.ns).keep(loadBalancerKey).with {
@@ -165,6 +216,10 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
       } catch (Exception e) {
         log.error("Error building cache for stack ${stack}", e)
       }
+
+
+
+      // -----
     }
 
     cacheResultBuilder.namespaceBuilders.keySet().each { String namespace ->
