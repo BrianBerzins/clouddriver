@@ -32,4 +32,7 @@ public class OpenstackCredentials {
     this.userDataProvider = new OpenstackUserDataProvider(this.credentials)
   }
 
+  OpenstackClientProvider getProvider() {
+    return provider
+  }
 }

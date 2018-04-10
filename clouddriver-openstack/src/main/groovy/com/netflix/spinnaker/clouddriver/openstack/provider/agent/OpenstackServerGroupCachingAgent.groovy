@@ -40,9 +40,11 @@ import com.netflix.spinnaker.clouddriver.openstack.utils.DateUtils
 import groovy.util.logging.Slf4j
 import org.openstack4j.model.heat.Stack
 import org.openstack4j.model.network.ext.status.LoadBalancerV2Status
+import org.openstack4j.openstack.heat.domain.HeatStack
 
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Future
+import java.util.function.Supplier
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE
@@ -89,17 +91,21 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
     }
   }
 
-
-  Map<String, Tuple2<Stack, List<LoadBalancerV2Status>>> getServerGroupToLoadBalancerIdsMap(List<Stack> stacks) {
+  Map<String, Tuple2<Stack, List<LoadBalancerV2Status>>> getServerGroupToLoadBalancerIdsMap(String region, List<Stack> stacks) {
     List<Future<Stack>> stackFutures = stacks.findResults { Stack stack ->
-      return CompletableFuture.supplyAsync {
-        Names names = Names.parseName(stack.getName())
-        if (names == null || names.getApp() == null || names.getCluster() == null) {
-          // the name of the stack does follow our the naming convention, ignore it
-          return null
+      String name = stack.getName()
+      Names names = Names.parseName(name)
+      if (!names && !names.app && !names.cluster) {
+        log.debug("stack: ${name} does not follow our nameing convention: ignoring")
+        null
+      } else {
+        CompletableFuture.supplyAsync{
+          clientProvider.getStack(region, name)
+        }.exceptionally{ throwable ->
+          log.error("Error getting stack details on stack: ${name} in region: ${region}", throwable)
+          null
         }
-        return clientProvider.getStack(region, stack.getName())
-      }.exceptionally{ throwable -> null }
+      }
     }
 
     CompletableFuture.allOf(stackFutures as CompletableFuture[]).join()
@@ -108,7 +114,6 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
       Stack stack = stackFuture.get()
       List<String> loadBalancerIds = ServerGroupParameters.fromParamsMap(stack.parameters).loadBalancers
       List<LoadBalancerV2Status> loadBalancerStatuses = getLoadBalancerStatus(loadBalancerIds)
-
       return [(stack.getName()): new Tuple2(stack, loadBalancerStatuses)]
     }
 
@@ -116,30 +121,30 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
 
   List<LoadBalancerV2Status> getLoadBalancerStatus(List<String> loadBalancerIds) {
     List<Future<LoadBalancerV2Status>> loadBalancerStatusFutures = loadBalancerIds.findResults { String loadBalancerId ->
-      return CompletableFuture.supplyAsync {
-        return clientProvider.getLoadBalancerStatusTree(region, loadBalancerId)?.loadBalancerV2Status
-      }.exceptionally{ throwable -> null }
+      CompletableFuture.supplyAsync {
+        clientProvider.getLoadBalancerStatusTree(region, loadBalancerId)?.loadBalancerV2Status
+      }.exceptionally{ throwable ->
+        log.error("Error getting load balancer status on load balancer: ${loadBalancerId} in region: ${region}", throwable)
+        null
+      }
     }
     CompletableFuture.allOf(loadBalancerStatusFutures as CompletableFuture[]).join()
-    return loadBalancerStatusFutures.collect { Future<LoadBalancerV2Status> loadBalancerStatusFuture ->
+    loadBalancerStatusFutures.collect { Future<LoadBalancerV2Status> loadBalancerStatusFuture ->
       loadBalancerStatusFuture.get()
     }
   }
 
-
-
   protected CacheResult buildCacheResult(ProviderCache providerCache, CacheResultBuilder cacheResultBuilder, List<Stack> stacks) {
     // Lookup all instances and group by stack Id
     Map<String, List<String>> instancesByStackId = getInstanceIdsByStack(region, stacks)
-
-    Map<String, Tuple2<Stack, List<LoadBalancerV2Status>>> stackDetails = getServerGroupToLoadBalancerIdsMap(stacks)
+    Map<String, Tuple2<Stack, List<LoadBalancerV2Status>>> stackDetails = getServerGroupToLoadBalancerIdsMap(region, stacks)
 
     stacks?.each { Stack stack ->
       try {
         String serverGroupName = stack.name
         Names names = Names.parseName(serverGroupName)
         if (!names && !names.app && !names.cluster) {
-          log.info("Skipping server group ${serverGroupName}")
+          log.debug("stack: ${serverGroupName} does not follow our nameing convention: ignoring")
         } else {
           String applicationName = names.app
           String clusterName = names.cluster
@@ -217,9 +222,13 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
     Map<String, Future<List<String>>> resourceMap = stacks.collectEntries {
       String name = it.name
       String id = it.id
-      [(id) : CompletableFuture.supplyAsync {
+      CompletableFuture<List<String>> future = CompletableFuture.supplyAsync {
         clientProvider.getInstanceIdsForStack(region, name)
-      }.exceptionally { t -> [] } ]
+      }.exceptionally { throwable ->
+        log.error("Error getting instance IDs for stack: ${name} in region: ${region}", throwable)
+        []
+      }
+      [(id) : future]
     }
 
     CompletableFuture.allOf(resourceMap.values().flatten() as CompletableFuture[]).join()
@@ -386,7 +395,7 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
    * @param statuses
    * @return
    */
-  boolean calculateServerGroupStatus(ProviderCache providerCache, Set<LoadBalancerV2Status> statuses, List<String> instanceKeys) {
+  static boolean calculateServerGroupStatus(ProviderCache providerCache, Set<LoadBalancerV2Status> statuses, List<String> instanceKeys) {
 
     //when all members for this server group are disabled, the server group is disabled, otherwise it is enabled.
     Map<String, String> memberStatusMap = statuses?.collectEntries { lbStatus ->
@@ -406,12 +415,10 @@ class OpenstackServerGroupCachingAgent extends AbstractOpenstackCachingAgent imp
     }
 
     // Find corresponding instance id, save key for caching below, and add new lb health based upon current member status
-    memberStatusMap
-      .findAll { key, value ->
-        key == addressCacheDataMap[key]?.attributes?.ipv4?.toString() ||
-        key == addressCacheDataMap[key]?.attributes?.ipv6?.toString()
-      }
-      .every { key, value -> value == "DISABLED" }
+    memberStatusMap.findAll { key, value ->
+      key == addressCacheDataMap[key]?.attributes?.ipv4?.toString() ||
+      key == addressCacheDataMap[key]?.attributes?.ipv6?.toString()
+    }.every { key, value -> value == "DISABLED" }
   }
 
   @Override

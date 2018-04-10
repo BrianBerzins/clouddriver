@@ -46,7 +46,10 @@ class OpenstackNamedAccountCredentials implements AccountCredentials<OpenstackCr
   final String userDataFile
   Map<String, List<String>> regionToZones
 
-
+  // required for mocking
+  String getName() {
+    return name
+  }
 
   OpenstackNamedAccountCredentials(String accountName,
                                    String environment,

@@ -46,6 +46,10 @@ abstract class AbstractOpenstackCachingAgent implements CachingAgent, AccountAwa
     account.name
   }
 
+  OpenstackNamedAccountCredentials getAccount() {
+    return account
+  }
+
   OpenstackClientProvider getClientProvider() {
     account?.credentials?.provider
   }
